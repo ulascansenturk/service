@@ -4,7 +4,7 @@ services:
     build:
       context: .
       target: dev
-    entrypoint: ["go", "run", "./cmd/server"]
+    entrypoint: ["/app/entrypoint.sh"]
     init: true
     environment:
       DATABASE_HOST: database

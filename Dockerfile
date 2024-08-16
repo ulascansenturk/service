@@ -28,6 +28,8 @@ COPY cmd cmd
 COPY db db
 COPY internal internal
 COPY pkg pkg
+COPY entrypoint.sh /app/entrypoint.sh
+RUN chmod +x /app/entrypoint.sh
 
 FROM base AS dev
 
@@ -36,7 +38,7 @@ COPY .golangci.yml .
 
 # Required for pg_dump
 RUN apk update && apk add --no-cache postgresql-client
-
+RUN apk add --no-cache netcat-openbsd
 RUN apk update && apk add --no-cache gcc libc-dev bash make curl
 
 RUN curl -sSf https://temporal.download/cli.sh | sh
