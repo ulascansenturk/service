@@ -1,0 +1,50 @@
+version: "3.9"
+services:
+  app:
+    build:
+      context: .
+      target: dev
+    entrypoint: ["go", "run", "./cmd/server"]
+    init: true
+    environment:
+      DATABASE_HOST: database
+      DATABASE_HOST_RO: database
+      DATABASE_NAME: service
+      DATABASE_PASSWORD: service-password
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: root
+      REDIS_ENDPOINT: redis
+      REDIS_PORT: 6379
+      DOCKER_BUILDKIT: 1
+      COMPOSE_DOCKER_CLI_BUILD: 1
+      TEMPORAL_ADDRESS: temporal:7233
+      TC_HOST: host.docker.internal
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "3000:3000"
+    depends_on:
+      - database
+      - temporal
+      - redis
+
+  temporal:
+    build: https://github.com/temporalio/temporalite.git#main
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+
+  database:
+    image: public.ecr.aws/docker/library/postgres:13.3
+    environment:
+      POSTGRES_DB: service
+      POSTGRES_PASSWORD: service-password
+      POSTGRES_USER: root
+    ports:
+      - "5432:5432"
+
+  redis:
+    image: redis:7.0
+    ports:
+      - "6379:6379"

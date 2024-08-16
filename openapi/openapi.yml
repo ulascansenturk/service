@@ -1,0 +1,306 @@
+openapi: 3.1.0
+info:
+  title: service
+  description: service OpenAPI specification
+  version: 1.0.0
+  summary: service API
+  contact:
+    email: ulascansenturk1@gmail.com
+servers:
+  - url: 'http://localhost:3000'
+    description: local
+tags:
+  - name: transfers
+  - name: outgoing-transactions
+paths:
+  /v1/transfers:
+    post:
+      summary: Run transfer workflow
+      operationId: v1-run-transfer-workflow
+      responses:
+        '201':
+          $ref: '#/components/responses/TransferWorkflowResponseBody'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        $ref: '#/components/requestBodies/TransferWorkflowRequestBody'
+
+  /v1/users:
+    post:
+      summary: Create user
+      operationId: v1-create-user
+      responses:
+        '201':
+          $ref: '#/components/responses/CreateUserResponseBody'
+        '400':
+          description: Bad Request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '422':
+          description: Unprocessable Entity
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal Server Error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+      requestBody:
+        $ref: '#/components/requestBodies/UserCreateRequestBody'
+
+components:
+  schemas:
+    Error:
+      title: Error
+      type: object
+      required:
+        - title
+        - detail
+        - status
+        - code
+        - meta
+      properties:
+        title:
+          type: string
+          example: Server error
+        detail:
+          type: string
+          example: 'Service temporarily unavailable, retry later'
+        status:
+          type: integer
+          example: 500
+        code:
+          type: string
+          example: server_error
+        meta:
+          type: object
+          example:
+            caused_by: ClassName
+    ErrorResponse:
+      type: object
+      properties:
+        errors:
+          type: array
+          items:
+            $ref: '#/components/schemas/Error'
+      required:
+        - errors
+    TransferWorkflowParams:
+      title: TransferWorkflowParams
+      type: object
+      properties:
+        reference_id:
+          type: string
+          format: uuid
+        amount:
+          type: integer
+          minimum: 1
+        fee_amount:
+          type: integer
+          minimum: 0
+        metadata:
+          type: object
+          additionalProperties: true
+        sourceAccountID:
+          type: string
+          format: uuid
+        destinationAccountID:
+          type: string
+          format: uuid
+      required:
+        - reference_id
+        - amount
+        - sourceAccountID
+        - destinationAccountID
+    Transaction:
+      title: Transaction
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        user_id:
+          type: string
+          format: uuid
+        amount:
+          type: integer
+        account_id:
+          type: string
+          format: uuid
+        currency_code:
+          type: string
+        reference_id:
+          type: string
+          format: uuid
+        metadata:
+          type: object
+          additionalProperties: true
+        status:
+          type: string
+        transaction_type:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    User:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        email:
+          type: string
+          format: email
+          example: "john.doe@example.com"
+        first_name:
+          type: string
+          example: "John"
+        last_name:
+          type: string
+          example: "Doe"
+      required:
+        - email
+        - first_name
+        - last_name
+    Account:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+          example: "987e6543-e21b-45f6-a789-123456789abc"
+        user_id:
+          type: string
+          format: uuid
+          example: "123e4567-e89b-12d3-a456-426614174000"
+        balance:
+          type: integer
+          format: int32
+          minimum: 0
+          example: 1000
+        currency:
+          type: string
+          example: "USD"
+          minLength: 3
+          maxLength: 3
+        status:
+          type: string
+          example: "active"
+      required:
+        - user_id
+        - balance
+        - currency
+        - status
+    TransferResult:
+      title: TransferResult
+      type: object
+      properties:
+        reference_id:
+          type: string
+          format: uuid
+        fee_transaction:
+          $ref: '#/components/schemas/Transaction'
+        source_transaction:
+          $ref: '#/components/schemas/Transaction'
+        destination_transaction:
+          $ref: '#/components/schemas/Transaction'
+    UserResult:
+      title: UserResult
+      type: object
+      properties:
+        user:
+          $ref: '#/components/schemas/User'
+        bankAccount:
+          $ref: '#/components/schemas/Account'
+    CreateUserParams:
+      title: CreateUserParams
+      type: object
+      properties:
+        email:
+          type: string
+        password:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+        currencyCode:
+          type: string
+        balance:
+          type: integer
+      required:
+        - email
+        - password
+        - firstName
+        - lastName
+        - currencyCode
+
+  responses:
+    TransferWorkflowResponseBody:
+      description: Example response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/TransferResult'
+            required:
+              - data
+    CreateUserResponseBody:
+      description: User response
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/UserResult'
+            required:
+              - data
+  requestBodies:
+    TransferWorkflowRequestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/TransferWorkflowParams'
+            required:
+              - data
+    UserCreateRequestBody:
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              data:
+                $ref: '#/components/schemas/CreateUserParams'
+            required:
+              - data

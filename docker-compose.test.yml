@@ -1,0 +1,50 @@
+version: "3.9"
+services:
+  app:
+    image: app:latest
+    build:
+      context: .
+      target: dev
+      args:
+        GITHUB_USER: ${GITHUB_USER}
+        GITHUB_PASSWORD: ${GITHUB_PASSWORD}
+    entrypoint: bash -c
+    init: true
+    environment:
+      COMPOSE_DOCKER_CLI_BUILD: 1
+      DATABASE_HOST: database
+      DATABASE_HOST_RO: database
+      DATABASE_NAME: gotron-test
+      DATABASE_PASSWORD: gotron
+      DATABASE_PORT: 5432
+      DATABASE_USERNAME: root
+      DOCKER_BUILDKIT: 1
+      CGO_ENABLED: 1
+      IN_DOCKER: true
+      TEMPORAL_ADDRESS: temporal:7233
+      TEMPORAL_CLI_SHOW_STACKS: 1
+      TC_HOST: host.docker.internal
+    env_file: .env.test
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+    ports:
+      - "3000:3000"
+    depends_on:
+      - database
+      - temporal
+
+  temporal:
+    build: https://github.com/temporalio/temporalite.git#main
+    ports:
+      - "7233:7233"
+      - "8233:8233"
+
+  database:
+    image: public.ecr.aws/docker/library/postgres:13.3
+    environment:
+      POSTGRES_DB: gotron-test
+      POSTGRES_PASSWORD: gotron
+      POSTGRES_USER: root
+    ports:
+      - "5432:5432"

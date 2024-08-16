@@ -1,0 +1,17 @@
+{
+  "LABEL": {
+    "name": "title needs formatting",
+    "color": "EEEEEE"
+  },
+  "CHECKS": {
+    "prefixes": ["fix: ", "feat: ", "docs: ", "style: ", "refactor: ", "test: ", "chore: ", "revert: "],
+    "regexp": "^FC-\\d+$",
+    "regexpFlags": "i",
+    "ignoreLabels" : ["dependencies", "tech", "wip"]
+  },
+  "MESSAGES": {
+    "success": "PR title looks amazing \uD83C\uDF1F",
+    "failure": "Please use correct PR title format",
+    "notice": ""
+  }
+}
