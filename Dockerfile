@@ -49,6 +49,7 @@ RUN go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.16.2
 
 FROM base AS build
 
+RUN go mod tidy
 RUN go build -o /server ./cmd/server/*.go
 
 FROM public.ecr.aws/docker/library/alpine:3.19 AS app
