@@ -1,5 +1,5 @@
-package: gotron
+package: service
 generate:
   client: true
   models: true
-output: openapi/go/gotron/client.gen.go
+output: openapi/go/service/client.gen.go
