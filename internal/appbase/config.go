@@ -132,3 +132,12 @@ func LoadConfiguration(cfg interface{}) error {
 
 	return nil
 }
+
+type DBConfig struct {
+	DatabaseName            string
+	DatabasePassword        string
+	DatabasePort            string
+	DatabaseUser            string
+	PrimaryDatabaseHost     string
+	ReadReplicaDatabaseHost string
+}

@@ -12,6 +12,7 @@ import (
 	"ulascansenturk/service/internal/accounts"
 	"ulascansenturk/service/internal/api"
 	v1 "ulascansenturk/service/internal/api/v1"
+	"ulascansenturk/service/internal/helpers"
 	"ulascansenturk/service/internal/temporalworkflows"
 	"ulascansenturk/service/internal/temporalworkflows/activities"
 	"ulascansenturk/service/internal/temporalworkflows/temporalutils"
@@ -224,8 +225,9 @@ func NewInjector(serviceName string, cfg *Config) *do.Injector {
 		transactionsService := do.MustInvoke[*transactions.TransactionServiceImpl](i)
 
 		accountsService := do.MustInvoke[*accounts.AccountServiceImpl](i)
+		timeProvider := &helpers.RealTimeProvider{}
 
-		return activities.NewTransactionOperations(finderOrCreatorService, transactionsService, accountsService), nil
+		return activities.NewTransactionOperations(finderOrCreatorService, transactionsService, accountsService, timeProvider), nil
 	})
 
 	do.ProvideNamed(injector, "transactions", func(i *do.Injector) (worker.Worker, error) {

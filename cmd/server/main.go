@@ -2,11 +2,13 @@ package main
 
 import (
 	"context"
+	"github.com/go-chi/chi/v5"
 	"github.com/rs/zerolog/log"
 	"github.com/samber/do"
 	"go.temporal.io/sdk/worker"
 	"net/http"
 	"ulascansenturk/service/cmd/utils"
+	"ulascansenturk/service/internal/api"
 
 	"ulascansenturk/service/internal/appbase"
 )
@@ -56,4 +58,13 @@ func main() {
 		log.Err(serverErr).Msg("server stopped")
 	}
 	<-ctx.Done()
+}
+
+func buildRouter(app *appbase.AppBase) *chi.Mux {
+	mux := do.MustInvokeNamed[*chi.Mux](app.Injector, appbase.InjectorApplicationRouter)
+	routes := do.MustInvoke[*api.Routes](app.Injector)
+
+	api.InitRoutes(mux, routes)
+
+	return mux
 }

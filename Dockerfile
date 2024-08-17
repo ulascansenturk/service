@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/golang:1.22.5-alpine3.20 AS base
+FROM public.ecr.aws/docker/library/golang:1.22.5-alpine3.20 AS basedockerf
 
 ARG GITHUB_USER
 ARG GITHUB_PASSWORD
@@ -27,7 +27,6 @@ COPY Makefile Makefile
 COPY cmd cmd
 COPY db db
 COPY internal internal
-COPY pkg pkg
 COPY entrypoint.sh /app/entrypoint.sh
 RUN chmod +x /app/entrypoint.sh
 
@@ -38,7 +37,6 @@ COPY .golangci.yml .
 
 # Required for pg_dump
 RUN apk update && apk add --no-cache postgresql-client
-RUN apk add --no-cache netcat-openbsd
 RUN apk update && apk add --no-cache gcc libc-dev bash make curl
 
 RUN curl -sSf https://temporal.download/cli.sh | sh

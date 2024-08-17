@@ -3,7 +3,6 @@ package accounts
 import (
 	"context"
 	"errors"
-
 	"github.com/go-playground/validator/v10"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
@@ -15,6 +14,7 @@ type Service interface {
 	UpdateAccount(ctx context.Context, account *Account, tx *gorm.DB) error
 	DeleteAccount(ctx context.Context, id uuid.UUID) error
 	GetAccountsByUserID(ctx context.Context, userID uuid.UUID) ([]*Account, error)
+	UpdateBalance(ctx context.Context, accountID uuid.UUID, amount int, operation string) error
 }
 
 type AccountServiceImpl struct {
@@ -73,4 +73,27 @@ func (s *AccountServiceImpl) GetAccountsByUserID(ctx context.Context, userID uui
 		return nil, err
 	}
 	return accounts, nil
+}
+
+func (s *AccountServiceImpl) UpdateBalance(ctx context.Context, accountID uuid.UUID, amount int, operation string) error {
+	return s.repo.Transaction(ctx, func(tx *gorm.DB) error {
+		account, err := s.repo.GetByIDForUpdate(ctx, accountID, tx)
+		if err != nil {
+			return err
+		}
+
+		switch operation {
+		case "INCREASE":
+			account.Balance += amount
+		case "DECREASE":
+			if account.Balance < amount {
+				return errors.New("insufficient funds")
+			}
+			account.Balance -= amount
+		default:
+			return errors.New("invalid operation")
+		}
+
+		return s.repo.UpdateWithTx(ctx, account, tx)
+	})
 }

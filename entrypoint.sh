@@ -9,4 +9,4 @@ echo "Running database migrations..."
 
 # Start the main application
 echo "Starting the application..."
-exec go run ./cmd/server
+exec go run cmd/server/main.go

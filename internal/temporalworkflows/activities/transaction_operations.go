@@ -3,10 +3,9 @@ package activities
 import (
 	"context"
 	"fmt"
-	"gorm.io/gorm"
-	"time"
 	"ulascansenturk/service/internal/accounts"
 	"ulascansenturk/service/internal/constants"
+	"ulascansenturk/service/internal/helpers"
 	"ulascansenturk/service/internal/transactions"
 
 	"github.com/google/uuid"
@@ -17,13 +16,15 @@ type TransactionOperations struct {
 	finderOrCreatorService transactions.FinderOrCreator
 	transactionService     transactions.Service
 	accountsService        accounts.Service
+	timeProvider           helpers.TimeProvider
 }
 
-func NewTransactionOperations(finderOrCreatorService transactions.FinderOrCreator, transactionsService transactions.Service, accountsService accounts.Service) *TransactionOperations {
+func NewTransactionOperations(finderOrCreatorService transactions.FinderOrCreator, transactionsService transactions.Service, accountsService accounts.Service, timeProvider helpers.TimeProvider) *TransactionOperations {
 	return &TransactionOperations{
 		finderOrCreatorService: finderOrCreatorService,
 		transactionService:     transactionsService,
 		accountsService:        accountsService,
+		timeProvider:           timeProvider,
 	}
 }
 
@@ -48,12 +49,6 @@ type TransferResult struct {
 }
 
 func (t *TransactionOperations) Transfer(ctx context.Context, params TransferParams) (*TransferResult, error) {
-	tx, err := t.beginTransaction(ctx)
-	if err != nil {
-		return nil, err
-	}
-	defer t.finalizeTransaction(tx, &err)
-
 	validAccounts, accountsErr := t.validateAccount(ctx, params.Amount, params.FeeAmount, params.SourceAccountID, params.DestinationAccountID)
 	if accountsErr != nil {
 		return nil, temporal.NewNonRetryableApplicationError("Error on validating accounts", "validate-accounts-err", accountsErr)
@@ -75,31 +70,15 @@ func (t *TransactionOperations) Transfer(ctx context.Context, params TransferPar
 		return nil, err
 	}
 
-	if err := t.updateAccountBalances(ctx, params, tx); err != nil {
+	if err := t.updateAccountBalances(ctx, *validAccounts.SourceAccount, *validAccounts.DestinationAccount, params); err != nil {
 		return nil, err
 	}
 
-	if err := t.finalizeTransactions(ctx, pendingOutGoingTransaction, pendingIncomingTransaction, pendingFeeTrx, tx); err != nil {
+	if err := t.finalizeTransactions(ctx, pendingOutGoingTransaction, pendingIncomingTransaction, pendingFeeTrx); err != nil {
 		return nil, err
 	}
 
 	return t.createTransferResult(params, pendingOutGoingTransaction, pendingIncomingTransaction, pendingFeeTrx), nil
-}
-
-func (t *TransactionOperations) beginTransaction(ctx context.Context) (*gorm.DB, error) {
-	tx, err := t.transactionService.BeginTransaction(ctx)
-	if err != nil {
-		return nil, temporal.NewNonRetryableApplicationError(err.Error(), "error while starting database transaction", nil)
-	}
-	return tx, nil
-}
-
-func (t *TransactionOperations) finalizeTransaction(tx *gorm.DB, err *error) {
-	if *err != nil {
-		tx.Rollback()
-	} else {
-		tx.Commit()
-	}
 }
 
 func (t *TransactionOperations) createPendingOutgoingTransaction(ctx context.Context, params TransferParams, sourceAccount accounts.Account) (*transactions.Transaction, error) {
@@ -114,7 +93,7 @@ func (t *TransactionOperations) createPendingOutgoingTransaction(ctx context.Con
 			"LinkedTransactionID":  params.SourceTransactionReferenceID.String(),
 			"LinkedAccountID":      sourceAccount.ID.String(),
 			"DestinationAccountID": params.DestinationAccountID.String(),
-			"timestamp":            time.Now().String(),
+			"timestamp":            t.timeProvider.Now(),
 		},
 		Status:          constants.TransactionStatusPENDING,
 		TransactionType: constants.TransactionTypeOUTBOUND,
@@ -140,7 +119,7 @@ func (t *TransactionOperations) createPendingFeeTransaction(ctx context.Context,
 			"OperationType":       "Fee Transfer",
 			"LinkedTransactionID": params.FeeTransactionReferenceID.String(),
 			"LinkedAccountID":     params.SourceAccountID.String(),
-			"timestamp":           time.Now().String(),
+			"timestamp":           t.timeProvider.Now(),
 		},
 		Status:          constants.TransactionStatusPENDING,
 		TransactionType: constants.TransactionTypeOUTGOINGFEE,
@@ -164,7 +143,7 @@ func (t *TransactionOperations) createPendingIncomingTransaction(ctx context.Con
 			"LinkedAccountID":      params.DestinationAccountID.String(),
 			"DestinationAccountID": params.DestinationAccountID.String(),
 			"SourceAccountID":      params.SourceAccountID,
-			"timestamp":            time.Now().String(),
+			"timestamp":            t.timeProvider.Now(),
 		},
 		ReferenceID:     params.DestinationTransactionReferenceID,
 		Status:          constants.TransactionStatusPENDING,
@@ -177,45 +156,34 @@ func (t *TransactionOperations) createPendingIncomingTransaction(ctx context.Con
 	return pendingIncomingTransaction, nil
 }
 
-func (t *TransactionOperations) updateAccountBalances(ctx context.Context, params TransferParams, tx *gorm.DB) error {
-	sourceAccount, err := t.accountsService.GetAccountByID(ctx, params.SourceAccountID)
-	if err != nil {
-		return err
+func (t *TransactionOperations) updateAccountBalances(ctx context.Context, sourceAcc, destinationAcc accounts.Account, params TransferParams) error {
+	sourceAccBalanceUpdateErr := t.accountsService.UpdateBalance(ctx, sourceAcc.ID, params.Amount, constants.BalanceOperationDECREASE.String())
+	if sourceAccBalanceUpdateErr != nil {
+		return sourceAccBalanceUpdateErr
 	}
 
-	sourceAccount.Balance -= params.Amount
-	if params.FeeAmount != nil {
-		sourceAccount.Balance -= *params.FeeAmount
+	destinationAccBalanceUpdateErr := t.accountsService.UpdateBalance(ctx, destinationAcc.ID, params.Amount, constants.BalanceOperationINCREASE.String())
+	if destinationAccBalanceUpdateErr != nil {
+		return destinationAccBalanceUpdateErr
 	}
 
-	if err := t.accountsService.UpdateAccount(ctx, sourceAccount, tx); err != nil {
-		return err
-	}
-
-	destinationAccount, err := t.accountsService.GetAccountByID(ctx, params.DestinationAccountID)
-	if err != nil {
-		return err
-	}
-
-	destinationAccount.Balance += params.Amount
-
-	return t.accountsService.UpdateAccount(ctx, destinationAccount, tx)
+	return nil
 }
 
-func (t *TransactionOperations) finalizeTransactions(ctx context.Context, outgoing, incoming, fee *transactions.Transaction, tx *gorm.DB) error {
+func (t *TransactionOperations) finalizeTransactions(ctx context.Context, outgoing, incoming, fee *transactions.Transaction) error {
 	outgoing.Status = constants.TransactionStatusSUCCESS
-	if err := t.transactionService.UpdateTransaction(ctx, outgoing, tx); err != nil {
+	if err := t.transactionService.UpdateTransactionStatus(ctx, outgoing.ID, constants.TransactionStatusSUCCESS); err != nil {
 		return err
 	}
 
 	incoming.Status = constants.TransactionStatusSUCCESS
-	if err := t.transactionService.UpdateTransaction(ctx, incoming, tx); err != nil {
+	if err := t.transactionService.UpdateTransactionStatus(ctx, incoming.ID, constants.TransactionStatusSUCCESS); err != nil {
 		return err
 	}
 
 	if fee != nil {
 		fee.Status = constants.TransactionStatusSUCCESS
-		if err := t.transactionService.UpdateTransaction(ctx, fee, tx); err != nil {
+		if err := t.transactionService.UpdateTransactionStatus(ctx, fee.ID, constants.TransactionStatusSUCCESS); err != nil {
 			return err
 		}
 	}

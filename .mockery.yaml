@@ -1,2 +1,47 @@
 with-expecter: false
 packages:
+  ulascansenturk/service/internal/accounts:
+    interfaces:
+      Repository:
+        config:
+          dir: internal/accounts/mocks
+          exported: true
+          outpkg: mocks
+          structname: SQLRepository
+          disable-version-string: true
+      Service:
+        config:
+          dir: internal/accounts/mocks
+          exported: true
+          outpkg: mocks
+          structname: AccountServiceImpl
+          disable-version-string: true
+  ulascansenturk/service/internal/transactions:
+    interfaces:
+      FinderOrCreator:
+        config:
+          dir: internal/transactions/mocks
+          exported: true
+          outpkg: mocks
+          structname: FinderOrCreatorService
+          disable-version-string: true
+      Service:
+        config:
+          dir: internal/transactions/mocks
+          exported: true
+          outpkg: mocks
+          structname: TransactionServiceImpl
+          disable-version-string: true
+  ulascansenturk/service/internal/helpers:
+    interfaces:
+      TimeProvider:
+        config:
+          dir: internal/helpers/mocks
+          exported: true
+          outpkg: mocks
+          structname: RealTimeProvider
+          disable-version-string: true
+
+
+
+

@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/google/uuid"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
 	"time"
 )
 
@@ -16,6 +17,10 @@ type Repository interface {
 	GetByToAccountID(ctx context.Context, toAccountID uuid.UUID) ([]*Transaction, error)
 	GetByCreatedAt(ctx context.Context, createdAt time.Time) ([]*Transaction, error)
 	Update(ctx context.Context, transaction *Transaction) error
+
+	Transaction(ctx context.Context, fn func(*gorm.DB) error) error
+
+	GetByIDForUpdate(ctx context.Context, transactionID uuid.UUID, tx *gorm.DB) (*Transaction, error)
 
 	UpdateWithTx(ctx context.Context, transaction *Transaction, tx *gorm.DB) error
 	Delete(ctx context.Context, id uuid.UUID) error
@@ -110,4 +115,29 @@ func (r *SQLRepository) UpdateWithTx(ctx context.Context, transaction *Transacti
 		return err
 	}
 	return nil
+}
+func (r *SQLRepository) Transaction(ctx context.Context, fn func(tx *gorm.DB) error) error {
+	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		if err := fn(tx); err != nil {
+			return err
+		}
+		return nil
+	})
+}
+
+func (r *SQLRepository) GetByIDForUpdate(ctx context.Context, transactionID uuid.UUID, tx *gorm.DB) (*Transaction, error) {
+	var transaction Transaction
+
+	if tx == nil {
+		return nil, errors.New("transaction is required")
+	}
+
+	if err := tx.WithContext(ctx).Clauses(clause.Locking{Strength: "UPDATE"}).First(&transaction, "id = ?", transactionID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return nil, nil
+		}
+		return nil, err
+	}
+
+	return &transaction, nil
 }
