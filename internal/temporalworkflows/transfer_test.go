@@ -29,25 +29,28 @@ func (s *transfersTestSuite) TearDownSubTest() {
 	s.env.AssertExpectations(s.T())
 }
 
-func TestInvalidateOutdatedVerifications(t *testing.T) {
+func TestTransfer(t *testing.T) {
 	t.Parallel()
 
 	suite.Run(t, new(transfersTestSuite))
 }
 
-func (s *transfersTestSuite) TestTransfer() {
+func (s *transfersTestSuite) TestTransferWorkflow() {
 	s.Run("Transfer", func() {
-		var transactionOperations activities.TransactionOperations
+		var transactionOperations *activities.TransactionOperations
+		var redisActivity *activities.Mutex
 
 		activityResponse := &activities.TransferResult{}
+
+		s.env.OnActivity(redisActivity.AcquireLock, mock.Anything, mock.Anything).Return(nil)
 
 		s.env.OnActivity(
 			transactionOperations.Transfer,
 			mock.Anything,
-			&TransferParams{},
+			mock.Anything,
 		).Return(activityResponse, nil)
 
-		s.env.ExecuteWorkflow(Transfer)
+		s.env.ExecuteWorkflow(Transfer, &TransferParams{})
 
 		s.True(s.env.IsWorkflowCompleted())
 		s.NoError(s.env.GetWorkflowError())

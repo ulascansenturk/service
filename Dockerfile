@@ -33,15 +33,12 @@ RUN chmod +x /app/entrypoint.sh
 FROM base AS dev
 
 COPY docker/temporal docker/temporal
-COPY .golangci.yml .
 
 # Required for pg_dump
 RUN apk update && apk add --no-cache postgresql-client
 RUN apk update && apk add --no-cache gcc libc-dev bash make curl
 
 RUN curl -sSf https://temporal.download/cli.sh | sh
-RUN go install github.com/golangci/golangci-lint/cmd/golangci-lint@v1.55.2
-RUN go install github.com/evilmartians/lefthook@v1.2.9
 RUN go install github.com/vektra/mockery/v2@v2.32.4
 RUN go install github.com/deepmap/oapi-codegen/cmd/oapi-codegen@v1.16.2
 
