@@ -18,7 +18,7 @@ type Service interface {
 	GetTransactionsByCreatedAt(ctx context.Context, createdAt time.Time) ([]*Transaction, error)
 	UpdateTransaction(ctx context.Context, transaction *Transaction, tx *gorm.DB) error
 	DeleteTransaction(ctx context.Context, id uuid.UUID) error
-	UpdateTransactionStatus(ctx context.Context, id uuid.UUID, status constants.TransactionStatus) error
+	UpdateTransactionStatus(ctx context.Context, id uuid.UUID, status constants.TransactionStatus) (*Transaction, error)
 	BeginTransaction(ctx context.Context) (*gorm.DB, error) // New method
 }
 
@@ -106,31 +106,36 @@ func (s *TransactionServiceImpl) BeginTransaction(ctx context.Context) (*gorm.DB
 	}
 	return tx, nil
 }
-func (s *TransactionServiceImpl) UpdateTransactionStatus(ctx context.Context, id uuid.UUID, status constants.TransactionStatus) error {
-	// Start a new transaction
-	return s.repo.Transaction(ctx, func(tx *gorm.DB) error {
-		// Get the transaction by ID
+func (s *TransactionServiceImpl) UpdateTransactionStatus(ctx context.Context, id uuid.UUID, status constants.TransactionStatus) (*Transaction, error) {
+	result, err := s.repo.Transaction(ctx, func(tx *gorm.DB) (interface{}, error) {
 		transaction, err := s.repo.GetByIDForUpdate(ctx, id, tx)
 		if err != nil {
-			return err
+			return nil, err
 		}
 		if transaction == nil {
-			return errors.New("transaction not found")
+			return nil, errors.New("transaction not found")
 		}
 
-		// Validate the status (optional, based on your requirements)
 		if status == "" {
-			return errors.New("status cannot be empty")
+			return nil, errors.New("status cannot be empty")
 		}
 
-		// Update the transaction status
-		transaction.Status = status
-
-		// Update the transaction in the repository
-		if err := s.repo.UpdateWithTx(ctx, transaction, tx); err != nil {
-			return err
+		updatedTrx, updateTrxErr := s.repo.UpdateStatusWithTx(ctx, *transaction, status, tx)
+		if updateTrxErr != nil {
+			return nil, updateTrxErr
 		}
 
-		return nil
+		return updatedTrx, nil
 	})
+
+	if err != nil {
+		return nil, err
+	}
+
+	updatedTransaction, ok := result.(*Transaction)
+	if !ok {
+		return nil, errors.New("unexpected result type")
+	}
+
+	return updatedTransaction, nil
 }

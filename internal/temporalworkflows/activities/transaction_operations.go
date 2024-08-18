@@ -3,6 +3,8 @@ package activities
 import (
 	"context"
 	"fmt"
+	"gorm.io/datatypes"
+	"time"
 	"ulascansenturk/service/internal/accounts"
 	"ulascansenturk/service/internal/constants"
 	"ulascansenturk/service/internal/helpers"
@@ -55,46 +57,47 @@ func (t *TransactionOperations) Transfer(ctx context.Context, params TransferPar
 
 	}
 
-	pendingOutGoingTransaction, err := t.createPendingOutgoingTransaction(ctx, params, *validAccounts.SourceAccount)
-	if err != nil {
-		return nil, err
+	pendingOutGoingTransaction, pendingOutGoingTransactionErr := t.createPendingOutgoingTransaction(ctx, params, *validAccounts.SourceAccount)
+	if pendingOutGoingTransactionErr != nil {
+		return nil, pendingOutGoingTransactionErr
 	}
 
-	pendingFeeTrx, err := t.createPendingFeeTransaction(ctx, params, *validAccounts.SourceAccount)
-	if err != nil {
-		return nil, err
+	pendingFeeTrx, pendingFeeTrxErr := t.createPendingFeeTransaction(ctx, params, *validAccounts.SourceAccount)
+	if pendingFeeTrxErr != nil {
+		return nil, pendingFeeTrxErr
 	}
 
-	pendingIncomingTransaction, err := t.createPendingIncomingTransaction(ctx, params, *validAccounts.DestinationAccount)
-	if err != nil {
-		return nil, err
+	pendingIncomingTransaction, pendingIncomingTransactionErr := t.createPendingIncomingTransaction(ctx, params, *validAccounts.DestinationAccount)
+	if pendingIncomingTransactionErr != nil {
+		return nil, pendingIncomingTransactionErr
 	}
 
-	if err := t.updateAccountBalances(ctx, *validAccounts.SourceAccount, *validAccounts.DestinationAccount, params); err != nil {
-		return nil, err
+	if updateAccountBalanceErr := t.updateAccountBalances(ctx, *validAccounts.SourceAccount, *validAccounts.DestinationAccount, params); updateAccountBalanceErr != nil {
+		return nil, updateAccountBalanceErr
 	}
 
-	if err := t.finalizeTransactions(ctx, pendingOutGoingTransaction, pendingIncomingTransaction, pendingFeeTrx); err != nil {
-		return nil, err
+	updatedTransactions, finalizeTranscationErr := t.finalizeTransactions(ctx, pendingOutGoingTransaction, pendingIncomingTransaction, pendingFeeTrx)
+	if finalizeTranscationErr != nil {
+		return nil, finalizeTranscationErr
 	}
 
-	return t.createTransferResult(params, pendingOutGoingTransaction, pendingIncomingTransaction, pendingFeeTrx), nil
+	return t.createTransferResult(params, &updatedTransactions.OutgoingTrx, &updatedTransactions.IncomingTrx, updatedTransactions.FeeTrx), nil
 }
 
 func (t *TransactionOperations) createPendingOutgoingTransaction(ctx context.Context, params TransferParams, sourceAccount accounts.Account) (*transactions.Transaction, error) {
-	pendingOutgoingTransactionParams := &transactions.DBTransaction{
+	pendingOutgoingTransactionParams := &transactions.Transaction{
 		UserID:       &sourceAccount.UserID,
 		Amount:       params.Amount,
 		AccountID:    sourceAccount.ID,
 		CurrencyCode: constants.CurrencyCode(sourceAccount.Currency),
 		ReferenceID:  params.SourceTransactionReferenceID,
-		Metadata: &map[string]interface{}{
+		Metadata: datatypes.JSONMap(map[string]interface{}{
 			"OperationType":        "Transfer",
 			"LinkedTransactionID":  params.SourceTransactionReferenceID.String(),
 			"LinkedAccountID":      sourceAccount.ID.String(),
 			"DestinationAccountID": params.DestinationAccountID.String(),
-			"timestamp":            t.timeProvider.Now(),
-		},
+			"timestamp":            t.timeProvider.Now().Format(time.RFC3339),
+		}),
 		Status:          constants.TransactionStatusPENDING,
 		TransactionType: constants.TransactionTypeOUTBOUND,
 	}
@@ -109,18 +112,18 @@ func (t *TransactionOperations) createPendingFeeTransaction(ctx context.Context,
 	if params.FeeAmount == nil {
 		return nil, nil
 	}
-	pendingOutgoingFeeTransactionParams := &transactions.DBTransaction{
+	pendingOutgoingFeeTransactionParams := &transactions.Transaction{
 		UserID:       &sourceAccount.UserID,
 		Amount:       *params.FeeAmount,
 		AccountID:    sourceAccount.ID,
 		CurrencyCode: constants.CurrencyCode(sourceAccount.Currency),
 		ReferenceID:  params.FeeTransactionReferenceID,
-		Metadata: &map[string]interface{}{
+		Metadata: datatypes.JSONMap(map[string]interface{}{
 			"OperationType":       "Fee Transfer",
 			"LinkedTransactionID": params.FeeTransactionReferenceID.String(),
 			"LinkedAccountID":     params.SourceAccountID.String(),
-			"timestamp":           t.timeProvider.Now(),
-		},
+			"timestamp":           t.timeProvider.Now().Format(time.RFC3339),
+		}),
 		Status:          constants.TransactionStatusPENDING,
 		TransactionType: constants.TransactionTypeOUTGOINGFEE,
 	}
@@ -132,20 +135,21 @@ func (t *TransactionOperations) createPendingFeeTransaction(ctx context.Context,
 }
 
 func (t *TransactionOperations) createPendingIncomingTransaction(ctx context.Context, params TransferParams, destinationAccount accounts.Account) (*transactions.Transaction, error) {
-	pendingIncomingTransactionParams := &transactions.DBTransaction{
+	pendingIncomingTransactionParams := &transactions.Transaction{
 		UserID:       &destinationAccount.UserID,
 		Amount:       params.Amount,
 		AccountID:    destinationAccount.ID,
 		CurrencyCode: constants.CurrencyCode(destinationAccount.Currency),
-		Metadata: &map[string]interface{}{
+		Metadata: datatypes.JSONMap(map[string]interface{}{
 			"OperationType":        "Transfer",
 			"LinkedTransactionID":  params.DestinationTransactionReferenceID.String(),
 			"LinkedAccountID":      params.DestinationAccountID.String(),
 			"DestinationAccountID": params.DestinationAccountID.String(),
 			"SourceAccountID":      params.SourceAccountID,
-			"timestamp":            t.timeProvider.Now(),
-		},
-		ReferenceID:     params.DestinationTransactionReferenceID,
+			"timestamp":            t.timeProvider.Now().Format(time.RFC3339),
+		}),
+		ReferenceID: params.DestinationTransactionReferenceID,
+
 		Status:          constants.TransactionStatusPENDING,
 		TransactionType: constants.TransactionTypeINBOUND,
 	}
@@ -170,25 +174,33 @@ func (t *TransactionOperations) updateAccountBalances(ctx context.Context, sourc
 	return nil
 }
 
-func (t *TransactionOperations) finalizeTransactions(ctx context.Context, outgoing, incoming, fee *transactions.Transaction) error {
-	outgoing.Status = constants.TransactionStatusSUCCESS
-	if err := t.transactionService.UpdateTransactionStatus(ctx, outgoing.ID, constants.TransactionStatusSUCCESS); err != nil {
-		return err
+func (t *TransactionOperations) finalizeTransactions(ctx context.Context, outgoing, incoming, fee *transactions.Transaction) (*UpdatedTransactions, error) {
+	updatedOutgoingTrx, updatedOutgoingTrxErr := t.transactionService.UpdateTransactionStatus(ctx, outgoing.ID, constants.TransactionStatusSUCCESS)
+	if updatedOutgoingTrxErr != nil {
+		return nil, updatedOutgoingTrxErr
 	}
 
-	incoming.Status = constants.TransactionStatusSUCCESS
-	if err := t.transactionService.UpdateTransactionStatus(ctx, incoming.ID, constants.TransactionStatusSUCCESS); err != nil {
-		return err
+	updatedIncomingTrx, updatedIncomingTrxErr := t.transactionService.UpdateTransactionStatus(ctx, incoming.ID, constants.TransactionStatusSUCCESS)
+	if updatedIncomingTrxErr != nil {
+		return nil, updatedIncomingTrxErr
 	}
+	var feeTrx *transactions.Transaction
 
 	if fee != nil {
 		fee.Status = constants.TransactionStatusSUCCESS
-		if err := t.transactionService.UpdateTransactionStatus(ctx, fee.ID, constants.TransactionStatusSUCCESS); err != nil {
-			return err
+		updatedFeeTrx, updatedFeeTrxErr := t.transactionService.UpdateTransactionStatus(ctx, fee.ID, constants.TransactionStatusSUCCESS)
+		if updatedFeeTrxErr != nil {
+			return nil, updatedFeeTrxErr
 		}
+		feeTrx = updatedFeeTrx
 	}
 
-	return nil
+	return &UpdatedTransactions{
+		IncomingTrx: *updatedIncomingTrx,
+		OutgoingTrx: *updatedOutgoingTrx,
+		FeeTrx:      feeTrx,
+	}, nil
+
 }
 
 func (t *TransactionOperations) createTransferResult(params TransferParams, outgoing, incoming, fee *transactions.Transaction) *TransferResult {
@@ -202,7 +214,7 @@ func (t *TransactionOperations) createTransferResult(params TransferParams, outg
 	}
 }
 
-func (t *TransactionOperations) findOrCreateTransaction(ctx context.Context, params *transactions.DBTransaction) (*transactions.Transaction, error) {
+func (t *TransactionOperations) findOrCreateTransaction(ctx context.Context, params *transactions.Transaction) (*transactions.Transaction, error) {
 	transaction, transactionErr := t.finderOrCreatorService.Call(ctx, params)
 	if transactionErr != nil {
 		return nil, transactionErr
@@ -256,4 +268,10 @@ func (t *TransactionOperations) validateAccount(ctx context.Context, transferAmo
 type ValidAccounts struct {
 	SourceAccount      *accounts.Account
 	DestinationAccount *accounts.Account
+}
+
+type UpdatedTransactions struct {
+	IncomingTrx transactions.Transaction
+	OutgoingTrx transactions.Transaction
+	FeeTrx      *transactions.Transaction
 }

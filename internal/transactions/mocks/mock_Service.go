@@ -239,21 +239,33 @@ func (_m *MockService) UpdateTransaction(ctx context.Context, transaction *trans
 }
 
 // UpdateTransactionStatus provides a mock function with given fields: ctx, id, status
-func (_m *MockService) UpdateTransactionStatus(ctx context.Context, id uuid.UUID, status constants.TransactionStatus) error {
+func (_m *MockService) UpdateTransactionStatus(ctx context.Context, id uuid.UUID, status constants.TransactionStatus) (*transactions.Transaction, error) {
 	ret := _m.Called(ctx, id, status)
 
 	if len(ret) == 0 {
 		panic("no return value specified for UpdateTransactionStatus")
 	}
 
-	var r0 error
-	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, constants.TransactionStatus) error); ok {
+	var r0 *transactions.Transaction
+	var r1 error
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, constants.TransactionStatus) (*transactions.Transaction, error)); ok {
+		return rf(ctx, id, status)
+	}
+	if rf, ok := ret.Get(0).(func(context.Context, uuid.UUID, constants.TransactionStatus) *transactions.Transaction); ok {
 		r0 = rf(ctx, id, status)
 	} else {
-		r0 = ret.Error(0)
+		if ret.Get(0) != nil {
+			r0 = ret.Get(0).(*transactions.Transaction)
+		}
 	}
 
-	return r0
+	if rf, ok := ret.Get(1).(func(context.Context, uuid.UUID, constants.TransactionStatus) error); ok {
+		r1 = rf(ctx, id, status)
+	} else {
+		r1 = ret.Error(1)
+	}
+
+	return r0, r1
 }
 
 // NewMockService creates a new instance of MockService. It also registers a testing interface on the mock and a cleanup function to assert the mocks expectations.

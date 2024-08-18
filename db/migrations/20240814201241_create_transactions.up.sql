@@ -1,3 +1,5 @@
+CREATE TYPE transaction_status AS ENUM ('PENDING', 'SUCCESS', 'FAILURE');
+
 CREATE TABLE transactions (
                               id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
                               user_id UUID,
@@ -6,7 +8,7 @@ CREATE TABLE transactions (
                               currency_code VARCHAR(10) NOT NULL,
                               reference_id UUID NOT NULL,
                               metadata JSONB,
-                              status VARCHAR(20) NOT NULL,
+                              status transaction_status NOT NULL,
                               transaction_type VARCHAR(20) NOT NULL,
                               created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
                               updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP

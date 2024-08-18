@@ -9,7 +9,7 @@ import (
 )
 
 type FinderOrCreator interface {
-	Call(ctx context.Context, params *DBTransaction) (*Transaction, error)
+	Call(ctx context.Context, params *Transaction) (*Transaction, error)
 }
 
 type FinderOrCreatorService struct {
@@ -26,7 +26,7 @@ func NewFinderOrCreatorService(transactionRepo Repository, accountRepo accounts.
 	}
 }
 
-func (s *FinderOrCreatorService) Call(ctx context.Context, params *DBTransaction) (*Transaction, error) {
+func (s *FinderOrCreatorService) Call(ctx context.Context, params *Transaction) (*Transaction, error) {
 	existingTransaction, err := s.transactionRepo.GetByReferenceID(ctx, params.ReferenceID)
 	if err != nil {
 		return nil, err
@@ -67,8 +67,8 @@ func (s *FinderOrCreatorService) validAccounts(sourceAccount, destinationAccount
 	return true
 }
 
-func (s *FinderOrCreatorService) createTransaction(ctx context.Context, params *DBTransaction) (*Transaction, error) {
-	createdTransaction, createTransactionErr := s.transactionRepo.Create(ctx, FromDBTransaction(params))
+func (s *FinderOrCreatorService) createTransaction(ctx context.Context, params *Transaction) (*Transaction, error) {
+	createdTransaction, createTransactionErr := s.transactionRepo.Create(ctx, params)
 	if createTransactionErr != nil {
 		return nil, createTransactionErr
 	}
@@ -76,7 +76,7 @@ func (s *FinderOrCreatorService) createTransaction(ctx context.Context, params *
 	return createdTransaction, nil
 }
 
-func (s *FinderOrCreatorService) createFailedTransaction(ctx context.Context, params *DBTransaction, account *accounts.Account) (*Transaction, error) {
+func (s *FinderOrCreatorService) createFailedTransaction(ctx context.Context, params *Transaction, account *accounts.Account) (*Transaction, error) {
 	if params.Status != constants.TransactionStatusFAILURE {
 		return nil, fmt.Errorf("only FAILURE transaction can be created for not INACTIVE accounts: %s", account.ID)
 	}

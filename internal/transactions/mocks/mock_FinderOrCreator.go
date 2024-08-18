@@ -15,7 +15,7 @@ type MockFinderOrCreator struct {
 }
 
 // Call provides a mock function with given fields: ctx, params
-func (_m *MockFinderOrCreator) Call(ctx context.Context, params *transactions.DBTransaction) (*transactions.Transaction, error) {
+func (_m *MockFinderOrCreator) Call(ctx context.Context, params *transactions.Transaction) (*transactions.Transaction, error) {
 	ret := _m.Called(ctx, params)
 
 	if len(ret) == 0 {
@@ -24,10 +24,10 @@ func (_m *MockFinderOrCreator) Call(ctx context.Context, params *transactions.DB
 
 	var r0 *transactions.Transaction
 	var r1 error
-	if rf, ok := ret.Get(0).(func(context.Context, *transactions.DBTransaction) (*transactions.Transaction, error)); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *transactions.Transaction) (*transactions.Transaction, error)); ok {
 		return rf(ctx, params)
 	}
-	if rf, ok := ret.Get(0).(func(context.Context, *transactions.DBTransaction) *transactions.Transaction); ok {
+	if rf, ok := ret.Get(0).(func(context.Context, *transactions.Transaction) *transactions.Transaction); ok {
 		r0 = rf(ctx, params)
 	} else {
 		if ret.Get(0) != nil {
@@ -35,7 +35,7 @@ func (_m *MockFinderOrCreator) Call(ctx context.Context, params *transactions.DB
 		}
 	}
 
-	if rf, ok := ret.Get(1).(func(context.Context, *transactions.DBTransaction) error); ok {
+	if rf, ok := ret.Get(1).(func(context.Context, *transactions.Transaction) error); ok {
 		r1 = rf(ctx, params)
 	} else {
 		r1 = ret.Error(1)

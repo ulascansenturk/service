@@ -2,6 +2,10 @@ package activities
 
 import (
 	"context"
+	"gorm.io/datatypes"
+	"testing"
+	"time"
+
 	"github.com/DATA-DOG/go-sqlmock"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/mock"
@@ -9,15 +13,12 @@ import (
 	"github.com/stretchr/testify/suite"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-	"testing"
-	"time"
 	"ulascansenturk/service/internal/accounts"
 	accountMocks "ulascansenturk/service/internal/accounts/mocks"
 	"ulascansenturk/service/internal/constants"
+	mockTime "ulascansenturk/service/internal/helpers/mocks"
 	"ulascansenturk/service/internal/transactions"
 	"ulascansenturk/service/internal/transactions/mocks"
-
-	mockTime "ulascansenturk/service/internal/helpers/mocks"
 	"ulascansenturk/service/internal/users"
 )
 
@@ -61,14 +62,12 @@ func TestTransactionsOperationsSuite(t *testing.T) {
 }
 
 func (s *transactionOperationsSuite) TestTransactionOperations() {
-	s.Run("Process Tranfer Activity", func() {
+	s.Run("Process Transfer Activity", func() {
 		sourceAccID := uuid.New()
-
 		destinationAccID := uuid.New()
-
 		sourceAccountUser := users.User{
 			ID:        uuid.New(),
-			Email:     "ulas@gmail.com	",
+			Email:     "ulas@gmail.com",
 			FirstName: "ulas",
 			IsActive:  true,
 		}
@@ -78,14 +77,14 @@ func (s *transactionOperationsSuite) TestTransactionOperations() {
 			UserID:    sourceAccountUser.ID,
 			Balance:   1000,
 			Currency:  "USD",
-			Status:    "ACTIVE",
+			Status:    constants.AccountStatusACTIVE,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
 
 		destinationAccountUser := users.User{
 			ID:        uuid.New(),
-			Email:     "meric@gmail.com	",
+			Email:     "meric@gmail.com",
 			FirstName: "meric",
 			IsActive:  true,
 		}
@@ -93,104 +92,95 @@ func (s *transactionOperationsSuite) TestTransactionOperations() {
 		destinationAccount := accounts.Account{
 			ID:        destinationAccID,
 			UserID:    destinationAccountUser.ID,
-			Balance:   1000,
+			Balance:   500,
 			Currency:  "USD",
-			Status:    "ACTIVE",
+			Status:    constants.AccountStatusACTIVE,
 			CreatedAt: time.Now(),
 			UpdatedAt: time.Now(),
 		}
-		destinationTransactionReference := uuid.New()
 
-		sourceTransactionReference := uuid.New()
+		amount := 100
+		feeAmount := 10
 
-		transferParams := TransferParams{
-			Amount:                            400,
-			DestinationAccountID:              destinationAccount.ID,
-			SourceTransactionReferenceID:      sourceTransactionReference,
-			DestinationTransactionReferenceID: destinationTransactionReference,
-			SourceAccountID:                   sourceAccount.ID,
+		params := TransferParams{
+			Amount:                            amount,
+			FeeAmount:                         &feeAmount,
+			DestinationAccountID:              destinationAccID,
+			SourceTransactionReferenceID:      uuid.New(),
+			DestinationTransactionReferenceID: uuid.New(),
+			FeeTransactionReferenceID:         uuid.New(),
+			SourceAccountID:                   sourceAccID,
 		}
 
-		s.accountsService.On("GetAccountByID", mock.Anything, sourceAccID).Return(&sourceAccount, nil).Once()
+		timestamp := time.Now()
+		s.timeProvider.On("Now").Return(timestamp)
 
-		s.accountsService.On("GetAccountByID", mock.Anything, destinationAccID).Return(&destinationAccount, nil).Once()
+		s.accountsService.On("GetAccountByID", mock.Anything, sourceAccID).Return(&sourceAccount, nil)
+		s.accountsService.On("GetAccountByID", mock.Anything, destinationAccID).Return(&destinationAccount, nil)
 
-		mockTime := time.Date(2024, 8, 17, 20, 13, 19, 662250000, time.UTC)
-		s.timeProvider.On("Now").Return(mockTime)
+		s.accountsService.On("UpdateBalance", mock.Anything, sourceAccID, amount, constants.BalanceOperationDECREASE.String()).Return(nil)
+		s.accountsService.On("UpdateBalance", mock.Anything, destinationAccID, amount, constants.BalanceOperationINCREASE.String()).Return(nil)
 
-		sourceTransactionMetadata := map[string]interface{}{
-			"OperationType":        "Transfer",
-			"LinkedTransactionID":  transferParams.SourceTransactionReferenceID.String(),
-			"LinkedAccountID":      sourceAccount.ID.String(),
-			"DestinationAccountID": transferParams.DestinationAccountID.String(),
-			"timestamp":            mockTime,
-		}
-
-		destinationTransactionMetadata := map[string]interface{}{
-			"OperationType":        "Transfer",
-			"LinkedTransactionID":  transferParams.DestinationTransactionReferenceID.String(),
-			"LinkedAccountID":      destinationAccount.ID.String(),
-			"DestinationAccountID": transferParams.DestinationAccountID.String(),
-			"SourceAccountID":      transferParams.SourceAccountID,
-			"timestamp":            mockTime,
-		}
-
-		pendingOutGoingTransaction := &transactions.Transaction{
+		sourceTransaction := &transactions.Transaction{
 			ID:              uuid.New(),
-			UserID:          &sourceAccount.UserID,
-			Amount:          400,
-			AccountID:       sourceAccount.ID,
-			CurrencyCode:    constants.CurrencyCode(sourceAccount.Currency),
-			ReferenceID:     sourceTransactionReference,
-			Metadata:        &sourceTransactionMetadata,
+			AccountID:       sourceAccID,
+			Amount:          amount,
 			Status:          constants.TransactionStatusPENDING,
 			TransactionType: constants.TransactionTypeOUTBOUND,
+			Metadata: datatypes.JSONMap(map[string]interface{}{
+				"OperationType":        "Transfer",
+				"LinkedTransactionID":  params.SourceTransactionReferenceID.String(),
+				"LinkedAccountID":      sourceAccID.String(),
+				"DestinationAccountID": destinationAccID.String(),
+				"timestamp":            timestamp.Format(time.RFC3339),
+			}),
 		}
 
-		pendingIncomingTransaction := &transactions.Transaction{
+		destinationTransaction := &transactions.Transaction{
 			ID:              uuid.New(),
-			UserID:          &destinationAccount.UserID,
-			Amount:          400,
-			AccountID:       destinationAccount.ID,
-			CurrencyCode:    constants.CurrencyCode(sourceAccount.Currency),
-			ReferenceID:     destinationTransactionReference,
-			Metadata:        &destinationTransactionMetadata,
+			AccountID:       destinationAccID,
+			Amount:          amount,
 			Status:          constants.TransactionStatusPENDING,
 			TransactionType: constants.TransactionTypeINBOUND,
+			Metadata: datatypes.JSONMap(map[string]interface{}{
+				"OperationType":       "Transfer",
+				"LinkedTransactionID": params.DestinationTransactionReferenceID.String(),
+				"LinkedAccountID":     destinationAccID.String(),
+				"SourceAccountID":     sourceAccID.String(),
+				"timestamp":           timestamp.Format(time.RFC3339),
+			}),
 		}
 
-		s.finderOrCreatorService.On("Call", mock.Anything, &transactions.DBTransaction{
-			UserID:          &sourceAccount.UserID,
-			Amount:          400,
-			AccountID:       sourceAccount.ID,
-			CurrencyCode:    constants.CurrencyCode(sourceAccount.Currency),
-			ReferenceID:     transferParams.SourceTransactionReferenceID,
-			Metadata:        &sourceTransactionMetadata,
+		feeTransaction := &transactions.Transaction{
+			ID:              uuid.New(),
+			AccountID:       sourceAccID,
+			Amount:          feeAmount,
 			Status:          constants.TransactionStatusPENDING,
-			TransactionType: constants.TransactionTypeOUTBOUND,
-		}).Return(pendingOutGoingTransaction, nil)
+			TransactionType: constants.TransactionTypeOUTGOINGFEE,
+			Metadata: datatypes.JSONMap(map[string]interface{}{
+				"OperationType":       "Fee Transfer",
+				"LinkedTransactionID": params.FeeTransactionReferenceID.String(),
+				"LinkedAccountID":     sourceAccID.String(),
+				"timestamp":           timestamp.Format(time.RFC3339),
+			}),
+		}
 
-		s.finderOrCreatorService.On("Call", mock.Anything, &transactions.DBTransaction{
-			UserID:          &destinationAccount.UserID,
-			Amount:          400,
-			AccountID:       destinationAccount.ID,
-			CurrencyCode:    constants.CurrencyCode(sourceAccount.Currency),
-			ReferenceID:     transferParams.DestinationTransactionReferenceID,
-			Metadata:        &destinationTransactionMetadata,
-			Status:          constants.TransactionStatusPENDING,
-			TransactionType: constants.TransactionTypeINBOUND,
-		}).Return(pendingIncomingTransaction, nil)
+		s.finderOrCreatorService.On("Call", mock.Anything, mock.Anything).Return(sourceTransaction, nil).Once()
+		s.finderOrCreatorService.On("Call", mock.Anything, mock.Anything).Return(destinationTransaction, nil).Once()
+		s.finderOrCreatorService.On("Call", mock.Anything, mock.Anything).Return(feeTransaction, nil).Once()
 
-		s.accountsService.On("UpdateBalance", mock.Anything, sourceAccID.ID, transferParams.Amount, constants.BalanceOperationDECREASE.String()).Return(nil).Once()
+		s.transactionsService.On("UpdateTransactionStatus", mock.Anything, sourceTransaction.ID, constants.TransactionStatusSUCCESS).Return(sourceTransaction, nil)
+		s.transactionsService.On("UpdateTransactionStatus", mock.Anything, destinationTransaction.ID, constants.TransactionStatusSUCCESS).Return(destinationTransaction, nil)
+		s.transactionsService.On("UpdateTransactionStatus", mock.Anything, feeTransaction.ID, constants.TransactionStatusSUCCESS).Return(feeTransaction, nil)
 
-		s.accountsService.On("UpdateBalance", mock.Anything, destinationAccID.ID, transferParams.Amount, constants.BalanceOperationINCREASE.String()).Return(nil).Once()
-
-		s.transactionsService.On("UpdateTransactionStatus", mock.Anything, pendingOutGoingTransaction.ID, constants.TransactionStatusSUCCESS).Once()
-
-		s.transactionsService.On("UpdateTransactionStatus", mock.Anything, pendingIncomingTransaction.ID, constants.TransactionStatusSUCCESS).Once()
-
-		_, err := s.transactionOperations.Transfer(s.ctx, transferParams)
+		result, err := s.transactionOperations.Transfer(s.ctx, params)
 		require.NoError(s.T(), err)
 
+		require.Equal(s.T(), params.SourceTransactionReferenceID, result.SourceTransactionReferenceID)
+		require.Equal(s.T(), params.DestinationTransactionReferenceID, result.DestinationTransactionReferenceID)
+		require.Equal(s.T(), params.FeeTransactionReferenceID, result.FeeTransactionReferenceID)
+		require.NotNil(s.T(), result.SourceTransaction)
+		require.NotNil(s.T(), result.DestinationTransaction)
+		require.NotNil(s.T(), result.FeeTransaction)
 	})
 }

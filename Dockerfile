@@ -1,4 +1,4 @@
-FROM public.ecr.aws/docker/library/golang:1.22.5-alpine3.20 AS basedockerf
+FROM public.ecr.aws/docker/library/golang:1.22.5-alpine3.20 AS base
 
 ARG GITHUB_USER
 ARG GITHUB_PASSWORD

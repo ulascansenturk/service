@@ -7,6 +7,7 @@ import (
 	"gorm.io/gorm"
 	"gorm.io/gorm/clause"
 	"time"
+	"ulascansenturk/service/internal/constants"
 )
 
 type Repository interface {
@@ -17,12 +18,9 @@ type Repository interface {
 	GetByToAccountID(ctx context.Context, toAccountID uuid.UUID) ([]*Transaction, error)
 	GetByCreatedAt(ctx context.Context, createdAt time.Time) ([]*Transaction, error)
 	Update(ctx context.Context, transaction *Transaction) error
-
-	Transaction(ctx context.Context, fn func(*gorm.DB) error) error
-
+	Transaction(ctx context.Context, fn func(*gorm.DB) (interface{}, error)) (interface{}, error)
 	GetByIDForUpdate(ctx context.Context, transactionID uuid.UUID, tx *gorm.DB) (*Transaction, error)
-
-	UpdateWithTx(ctx context.Context, transaction *Transaction, tx *gorm.DB) error
+	UpdateStatusWithTx(ctx context.Context, transaction Transaction, status constants.TransactionStatus, tx *gorm.DB) (*Transaction, error)
 	Delete(ctx context.Context, id uuid.UUID) error
 	DB() *gorm.DB
 }
@@ -60,7 +58,7 @@ func (r *SQLRepository) GetByID(ctx context.Context, id uuid.UUID) (*Transaction
 
 func (r *SQLRepository) GetByReferenceID(ctx context.Context, referenceID uuid.UUID) (*Transaction, error) {
 	var transaction Transaction
-	if err := r.db.WithContext(ctx).First(&transaction, "reference_id= ?", referenceID).Error; err != nil {
+	if err := r.db.WithContext(ctx).Table("transactions").First(&transaction, "reference_id= ?", referenceID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return nil, nil
 		}
@@ -107,24 +105,33 @@ func (r *SQLRepository) Delete(ctx context.Context, id uuid.UUID) error {
 	return nil
 }
 
-func (r *SQLRepository) UpdateWithTx(ctx context.Context, transaction *Transaction, tx *gorm.DB) error {
+func (r *SQLRepository) UpdateStatusWithTx(ctx context.Context, transaction Transaction, status constants.TransactionStatus, tx *gorm.DB) (*Transaction, error) {
 	if tx == nil {
-		return errors.New("transaction is required")
+		return nil, errors.New("transaction is required")
 	}
-	if err := tx.WithContext(ctx).Model(&Transaction{}).Where("id = ?", transaction.ID).Updates(transaction).Error; err != nil {
-		return err
-	}
-	return nil
-}
-func (r *SQLRepository) Transaction(ctx context.Context, fn func(tx *gorm.DB) error) error {
-	return r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
-		if err := fn(tx); err != nil {
-			return err
-		}
-		return nil
-	})
-}
 
+	// Update the status
+	if err := tx.WithContext(ctx).Model(&transaction).Update("status", status).Error; err != nil {
+		return nil, err
+	}
+
+	// Fetch the updated transaction
+	var updatedTransaction Transaction
+	if err := tx.WithContext(ctx).First(&updatedTransaction, transaction.ID).Error; err != nil {
+		return nil, err
+	}
+
+	return &updatedTransaction, nil
+}
+func (r *SQLRepository) Transaction(ctx context.Context, fn func(tx *gorm.DB) (interface{}, error)) (interface{}, error) {
+	var result interface{}
+	err := r.db.WithContext(ctx).Transaction(func(tx *gorm.DB) error {
+		var err error
+		result, err = fn(tx)
+		return err
+	})
+	return result, err
+}
 func (r *SQLRepository) GetByIDForUpdate(ctx context.Context, transactionID uuid.UUID, tx *gorm.DB) (*Transaction, error) {
 	var transaction Transaction
 
