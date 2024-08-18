@@ -1,4 +1,5 @@
 
+
 # Banking Service
 
 This application is a banking service that depends on Temporal, Redis, and PostgreSQL. The required resources are orchestrated using Docker Compose, and the database is automatically migrated once all services are healthy.
@@ -160,4 +161,10 @@ Example Response:
     }
 }
 ```
+## Screenshot from Temporal UI Transfer workflow:
 
+![Transfer Workflow](https://i.ibb.co/XVM6xJP/Screenshot-2024-08-18-at-17-04-05.png)
+
+
+### Detailed view 
+![Transfer Workflow Detail](https://i.ibb.co/QrdtC5n/Screenshot-2024-08-18-at-17-05-29.png)
