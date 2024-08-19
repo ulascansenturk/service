@@ -19,8 +19,9 @@ require (
 	github.com/samber/do v1.6.0
 	github.com/samber/lo v1.46.0
 	github.com/stretchr/testify v1.9.0
+	github.com/testcontainers/testcontainers-go v0.32.0
 	github.com/testcontainers/testcontainers-go/modules/redis v0.32.0
-	go.temporal.io/sdk v1.27.0
+	go.temporal.io/sdk v1.28.1
 	golang.org/x/crypto v0.25.0
 	gorm.io/datatypes v1.2.1
 	gorm.io/driver/postgres v1.5.7
@@ -91,6 +92,7 @@ require (
 	github.com/moby/term v0.5.0 // indirect
 	github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 // indirect
 	github.com/morikuni/aec v1.0.0 // indirect
+	github.com/nexus-rpc/sdk-go v0.0.9 // indirect
 	github.com/opencontainers/go-digest v1.0.0 // indirect
 	github.com/opencontainers/image-spec v1.1.0 // indirect
 	github.com/pborman/uuid v1.2.1 // indirect
@@ -103,7 +105,6 @@ require (
 	github.com/shoenig/go-m1cpu v0.1.6 // indirect
 	github.com/sirupsen/logrus v1.9.3 // indirect
 	github.com/stretchr/objx v0.5.2 // indirect
-	github.com/testcontainers/testcontainers-go v0.32.0 // indirect
 	github.com/tklauser/go-sysconf v0.3.12 // indirect
 	github.com/tklauser/numcpus v0.6.1 // indirect
 	github.com/yusufpapurcu/wmi v1.2.3 // indirect

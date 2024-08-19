@@ -220,6 +220,8 @@ github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826 h1:RWengNIwukTxcDr9
 github.com/mohae/deepcopy v0.0.0-20170929034955-c48cc78d4826/go.mod h1:TaXosZuwdSHYgviHp1DAtfrULt5eUgsSMsZf+YrPgl8=
 github.com/morikuni/aec v1.0.0 h1:nP9CBfwrvYnBRgY6qfDQkygYDmYwOilePFkwzv4dU8A=
 github.com/morikuni/aec v1.0.0/go.mod h1:BbKIizmSmc5MMPqRYbxO4ZU0S0+P200+tUnFx7PXmsc=
+github.com/nexus-rpc/sdk-go v0.0.9 h1:yQ16BlDWZ6EMjim/SMd8lsUGTj6TPxFioqLGP8/PJDQ=
+github.com/nexus-rpc/sdk-go v0.0.9/go.mod h1:TpfkM2Cw0Rlk9drGkoiSMpFqflKTiQLWUNyKJjF8mKQ=
 github.com/oapi-codegen/runtime v1.1.1 h1:EXLHh0DXIJnWhdRPN2w4MXAzFyE4CskzhNLUmtpMYro=
 github.com/oapi-codegen/runtime v1.1.1/go.mod h1:SK9X900oXmPWilYR5/WKPzt3Kqxn/uS/+lbpREv+eCg=
 github.com/opencontainers/go-digest v1.0.0 h1:apOUWs51W5PlhuyGyz9FCeeBIOUDA/6nW8Oi/yOhh5U=
@@ -321,8 +323,8 @@ go.opentelemetry.io/proto/otlp v1.0.0 h1:T0TX0tmXU8a3CbNXzEKGeU5mIVOdf0oykP+u2lI
 go.opentelemetry.io/proto/otlp v1.0.0/go.mod h1:Sy6pihPLfYHkr3NkUbEhGHFhINUSI/v80hjKIs5JXpM=
 go.temporal.io/api v1.36.0 h1:WdntOw9m38lFvMdMXuOO+3BQ0R8HpVLgtk9+f+FwiDk=
 go.temporal.io/api v1.36.0/go.mod h1:0nWIrFRVPlcrkopXqxir/UWOtz/NZCo+EE9IX4UwVxw=
-go.temporal.io/sdk v1.27.0 h1:C5oOE/IRyLcZaFoB13kEHsjvSHEnGcwT6bNys0HFFHk=
-go.temporal.io/sdk v1.27.0/go.mod h1:PnOq5f3dWuU2NAbY+yczXkIeycsIIdBtoCO62ZE0aak=
+go.temporal.io/sdk v1.28.1 h1:PsexsNDWXyWdJp4KWTOD+DfSZD1z0k5U/dIJF05akT4=
+go.temporal.io/sdk v1.28.1/go.mod h1:zHcmZNXPaKXQJ6Hn98Ebcii7VlHL1mI4RJW8R6GQa1k=
 go.uber.org/atomic v1.7.0/go.mod h1:fEN4uk6kAWBTFdckzkM89CLk9XfWZrxpCo0nPH17wJc=
 go.uber.org/goleak v1.1.10/go.mod h1:8a7PlsEVH3e/a/GLqe5IIrQx6GzcnRmZEufDUTk4A7A=
 go.uber.org/multierr v1.6.0/go.mod h1:cdWPpRnG4AhwMwsgIHip0KRBQjJy5kYEpYjJxpXp9iU=
